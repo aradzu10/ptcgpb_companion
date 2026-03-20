@@ -1353,6 +1353,8 @@ class AccountCardListDialog(QDialog):
                     account.save()
 
                 sc.delete()
+                from app.db.models import OwnedCard
+                OwnedCard.objects.get_or_create(card=card)
                 success = True
             else:
                 success = False
