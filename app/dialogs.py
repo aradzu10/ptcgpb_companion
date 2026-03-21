@@ -1271,7 +1271,19 @@ class AccountCardListDialog(QDialog):
 
                 sc.delete()
                 from app.db.models import OwnedCard
-                OwnedCard.objects.get_or_create(card=card)
+                add_owned_box = QMessageBox(self)
+                add_owned_box.setWindowTitle(self.tr("Add to Owned Cards?"))
+                add_owned_box.setText(
+                    self.tr("Do you want to add <b>%1</b> to your owned cards?").replace(
+                        "%1", self.card_name
+                    )
+                )
+                add_owned_box.setStandardButtons(
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                )
+                add_owned_box.setDefaultButton(QMessageBox.StandardButton.No)
+                if add_owned_box.exec() == QMessageBox.StandardButton.Yes:
+                    OwnedCard.objects.get_or_create(card=card)
                 success = True
             else:
                 success = False
