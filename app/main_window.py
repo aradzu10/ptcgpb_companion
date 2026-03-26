@@ -16,7 +16,6 @@ from PyQt6.QtWidgets import (
     QTabWidget,
     QStatusBar,
     QTableView,
-    QComboBox,
     QLineEdit,
     QHeaderView,
     QAbstractItemView,
@@ -25,6 +24,7 @@ from PyQt6.QtWidgets import (
     QTextEdit,
     QMessageBox,
     QProgressBar,
+    QCheckBox,
 )
 from PyQt6.QtCore import QSize, QTimer
 from PyQt6.QtGui import QAction
@@ -62,6 +62,7 @@ from app.workers import (
 from PyQt6.QtCore import QThreadPool, Qt, QUrl
 from PyQt6.QtGui import QDesktopServices
 from app.utils import (
+    CheckableComboBox,
     PortableSettings,
     get_app_version,
     get_traded_cards,
@@ -994,18 +995,20 @@ class MainWindow(QMainWindow):
         filter_layout = QHBoxLayout()
 
         # Set filter
-        self.set_filter = QComboBox()
-        self.set_filter.addItem(self.tr("All Sets"))
+        self.set_filter = CheckableComboBox(self.tr("All Sets"))
         self.set_filter.setMinimumWidth(150)
         filter_layout.addWidget(QLabel(self.tr("Set:")))
         filter_layout.addWidget(self.set_filter)
 
         # Rarity filter
-        self.rarity_filter = QComboBox()
-        self.rarity_filter.addItem(self.tr("All Rarities"))
+        self.rarity_filter = CheckableComboBox(self.tr("All Rarities"))
         self.rarity_filter.setMinimumWidth(150)
         filter_layout.addWidget(QLabel(self.tr("Rarity:")))
         filter_layout.addWidget(self.rarity_filter)
+
+        # Tradeable filter
+        self.tradeable_filter = QCheckBox(self.tr("Tradeable only"))
+        filter_layout.addWidget(self.tradeable_filter)
 
         # Search box
         self.search_box = QLineEdit()
@@ -1241,10 +1244,11 @@ class MainWindow(QMainWindow):
             self._configure_card_table_columns()
 
             # Connect filter signals
-            self.set_filter.currentIndexChanged.connect(self._apply_filters)
-            self.rarity_filter.currentIndexChanged.connect(self._apply_filters)
+            self.set_filter.selectionChanged.connect(self._apply_filters)
+            self.rarity_filter.selectionChanged.connect(self._apply_filters)
 
             self.search_box.textChanged.connect(self._apply_filters)
+            self.tradeable_filter.stateChanged.connect(self._apply_filters)
 
             # Connect table click signal
             self.cards_table.clicked.connect(self._on_card_table_clicked)
@@ -1291,6 +1295,7 @@ class MainWindow(QMainWindow):
             getattr(self, "set_filter", None),
             getattr(self, "rarity_filter", None),
             getattr(self, "account_filter", None),
+            getattr(self, "tradeable_filter", None),
             getattr(self, "search_box", None),
             getattr(self, "refresh_cards_btn", None),
         ]:
@@ -1386,6 +1391,7 @@ class MainWindow(QMainWindow):
             getattr(self, "set_filter", None),
             getattr(self, "rarity_filter", None),
             getattr(self, "account_filter", None),
+            getattr(self, "tradeable_filter", None),
             getattr(self, "search_box", None),
             getattr(self, "refresh_cards_btn", None),
         ]:
@@ -1410,6 +1416,7 @@ class MainWindow(QMainWindow):
             getattr(self, "set_filter", None),
             getattr(self, "rarity_filter", None),
             getattr(self, "account_filter", None),
+            getattr(self, "tradeable_filter", None),
             getattr(self, "search_box", None),
             getattr(self, "refresh_cards_btn", None),
         ]:
@@ -1427,20 +1434,18 @@ class MainWindow(QMainWindow):
         set_display_names = set(SET_MAP.values())
 
         try:
-            # Block signals during bulk update
             self.set_filter.blockSignals(True)
             self.rarity_filter.blockSignals(True)
 
-            # Update set filter
+            # --- Set filter ---
             sets = set()
             for card in card_data:
                 set_name = card.get("set_name")
                 if set_name and set_name in set_display_names:
                     sets.add(set_name)
 
-            current_set = self.set_filter.currentText()
+            previous_sets = self.set_filter.checked_items()
             self.set_filter.clear()
-            self.set_filter.addItem(self.tr("All Sets"))
             set_order = list(SET_MAP.values())
             sorted_sets = sorted(
                 sets,
@@ -1449,24 +1454,19 @@ class MainWindow(QMainWindow):
             for set_name in sorted_sets:
                 self.set_filter.addItem(set_name)
 
-            # Restore previous selection if possible
-            if current_set != self.tr("All Sets") and current_set in sets:
-                index = self.set_filter.findText(current_set)
-                if index >= 0:
-                    self.set_filter.setCurrentIndex(index)
+            restore_sets = [s for s in previous_sets if s in sets]
+            if restore_sets and len(restore_sets) < len(sets):
+                self.set_filter.set_checked_items(restore_sets)
 
-            # Update rarity filter
+            # --- Rarity filter ---
             rarities = set()
             for card in card_data:
                 rarity = card.get("rarity")
                 if rarity and rarity in rarity_display_names:
                     rarities.add(rarity)
 
-            current_rarity = self.rarity_filter.currentText()
+            previous_rarities = self.rarity_filter.checked_items()
             self.rarity_filter.clear()
-            self.rarity_filter.addItem(self.tr("All Rarities"))
-
-            # Sort rarities according to the order in RARITY_MAP
             rarity_order = list(RARITY_MAP.values())
             sorted_rarities = sorted(
                 rarities,
@@ -1475,42 +1475,34 @@ class MainWindow(QMainWindow):
             for rarity in sorted_rarities:
                 self.rarity_filter.addItem(rarity)
 
-            # Restore previous selection if possible
-            if current_rarity != self.tr("All Rarities") and current_rarity in rarities:
-                index = self.rarity_filter.findText(current_rarity)
-                if index >= 0:
-                    self.rarity_filter.setCurrentIndex(index)
+            restore_rarities = [r for r in previous_rarities if r in rarities]
+            if restore_rarities and len(restore_rarities) < len(rarities):
+                self.rarity_filter.set_checked_items(restore_rarities)
 
         except Exception as e:
             print(f"Error updating filter options: {e}")
         finally:
-            # Unblock signals
             self.set_filter.blockSignals(False)
             self.rarity_filter.blockSignals(False)
 
     def _apply_filters(self):
         """Apply current filters to the card data"""
         try:
-            # Get current filter values
-            set_filter = self.set_filter.currentText().lower()
-            rarity_filter = self.rarity_filter.currentText().lower()
+            selected_sets = set(self.set_filter.checked_items())
+            selected_rarities = set(self.rarity_filter.checked_items())
             search_text = self.search_box.text().strip().lower()
 
             all_cards = getattr(self, "all_card_data", [])
             all_cards_count = len(all_cards)
 
-            if set_filter != self.tr("All Sets").lower():
+            if not self.set_filter.all_items_checked():
                 all_cards = [
-                    obj
-                    for obj in all_cards
-                    if obj.get("set_name").lower() == set_filter
+                    obj for obj in all_cards if obj.get("set_name") in selected_sets
                 ]
 
-            if rarity_filter != self.tr("All Rarities").lower():
+            if not self.rarity_filter.all_items_checked():
                 all_cards = [
-                    obj
-                    for obj in all_cards
-                    if obj.get("rarity").lower() == rarity_filter
+                    obj for obj in all_cards if obj.get("rarity") in selected_rarities
                 ]
 
             if search_text:
@@ -1519,6 +1511,9 @@ class MainWindow(QMainWindow):
                     for obj in all_cards
                     if search_text in obj.get("card_name", "").lower()
                 ]
+
+            if self.tradeable_filter.isChecked():
+                all_cards = [obj for obj in all_cards if obj.get("tradeable")]
 
             # Update model with filtered data
             self.card_model.update_data(all_cards)
