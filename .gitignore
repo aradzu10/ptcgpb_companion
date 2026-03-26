@@ -9,3 +9,4 @@ resources/card_imgs/
 *.db-shm
 *.db-wal
 *__pycache__*
+scripts/
