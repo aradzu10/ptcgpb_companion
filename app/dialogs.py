@@ -1371,13 +1371,14 @@ class ExportCSVDialog(QDialog):
         self.only_diamond_cb = QCheckBox(
             self.tr("Only include 1–4D rarities (exclude 1S, 2S, 3S, CR)")
         )
+        self.only_diamond_cb.setChecked(True)
         self.exclude_owned_cb = QCheckBox(
             self.tr("Exclude already-owned cards from accounts CSV")
         )
+        self.exclude_owned_cb.setChecked(True)
         self.export_all_pokemon_cb = QCheckBox(
             self.tr("Export all pokemons list")
         )
-        self.export_all_pokemon_cb.setChecked(True)
 
         filter_layout.addWidget(self.only_diamond_cb)
         filter_layout.addWidget(self.exclude_owned_cb)
