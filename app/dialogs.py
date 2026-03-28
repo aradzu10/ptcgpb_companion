@@ -1374,9 +1374,14 @@ class ExportCSVDialog(QDialog):
         self.exclude_owned_cb = QCheckBox(
             self.tr("Exclude already-owned cards from accounts CSV")
         )
+        self.export_all_pokemon_cb = QCheckBox(
+            self.tr("Export all pokemons list")
+        )
+        self.export_all_pokemon_cb.setChecked(True)
 
         filter_layout.addWidget(self.only_diamond_cb)
         filter_layout.addWidget(self.exclude_owned_cb)
+        filter_layout.addWidget(self.export_all_pokemon_cb)
         filter_group.setLayout(filter_layout)
         layout.addWidget(filter_group)
 
@@ -1401,20 +1406,27 @@ class ExportCSVDialog(QDialog):
 
         only_diamond = self.only_diamond_cb.isChecked()
         exclude_owned = self.exclude_owned_cb.isChecked()
+        export_all_pokemon = self.export_all_pokemon_cb.isChecked()
         diamond_rarities = {"1D", "2D", "3D", "4D"}
 
+        exported_files = []
         try:
-            self._export_all_pokemon(directory, only_diamond, diamond_rarities)
+            if export_all_pokemon:
+                self._export_all_pokemon(directory, only_diamond, diamond_rarities)
+                exported_files.append("all_pokemon.csv")
             self._export_account_pokemon(directory, only_diamond, exclude_owned, diamond_rarities)
+            exported_files.append("account_pokemon.csv")
             self._export_owned_cards(directory, only_diamond, diamond_rarities)
+            exported_files.append("owned_cards.csv")
         except Exception as e:
             QMessageBox.critical(self, self.tr("Export Error"), str(e))
             return
 
+        files_list = "\n".join(f"• {f}" for f in exported_files)
         QMessageBox.information(
             self,
             self.tr("Export Complete"),
-            self.tr("Files saved to:\n%1\n\n• all_pokemon.csv\n• account_pokemon.csv\n• owned_cards.csv").replace("%1", directory),
+            self.tr("Files saved to:\n%1\n\n%2").replace("%1", directory).replace("%2", files_list),
         )
 
     def _export_all_pokemon(self, directory: str, only_diamond: bool, diamond_rarities: set):
