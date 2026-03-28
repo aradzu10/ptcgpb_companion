@@ -5,7 +5,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("db", "0004_alter_card_set_alter_screenshot_set"),
+        ("db", "0005_alter_card_set_alter_screenshot_set"),
     ]
 
     operations = [

@@ -1342,7 +1342,7 @@ class MainWindow(QMainWindow):
         self._setup_owned_card_model()
 
         owned_widget.setLayout(owned_layout)
-        self.owned_cards_tab_index = self.tab_widget.addTab(owned_widget, self.tr("Cards I Own"))
+        self.owned_cards_tab_index = self.tab_widget.addTab(owned_widget, self.tr("My Cards"))
 
     def _setup_owned_card_model(self):
         self.owned_card_model = OwnedCardModel()
