@@ -201,11 +201,11 @@ class OwnedCardModel(QAbstractTableModel):
 
         if role == Qt.ItemDataRole.DisplayRole:
             if col == 1:
-                return card_data.get("card_name", "Unknown")
-            elif col == 2:
                 _, card_num = card_data.get("card_code", "A_0").lower().split("_")
-                set_name = card_data.get("set_name", "Unknown")
-                return f"{set_name} | {card_num}"
+                card_name = card_data.get("card_name", "Unknown")
+                return f"{card_num} | {card_name}"
+            elif col == 2:
+                return card_data.get("set_name", "Unknown")
 
         elif role == Qt.ItemDataRole.DecorationRole and col == 0:
             image_path = card_data.get("image_path")

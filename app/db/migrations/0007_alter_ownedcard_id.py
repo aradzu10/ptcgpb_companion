@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("db", "0005_ownedcard"),
+        ("db", "0006_ownedcard"),
     ]
 
     operations = [
