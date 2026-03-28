@@ -676,6 +676,12 @@ class MainWindow(QMainWindow):
         process_removed_action.triggered.connect(self._on_process_removed_cards)
         file_menu.addAction(process_removed_action)
 
+        # Export CSV action
+        export_csv_action = QAction(self.tr("&Export CSV..."), self)
+        export_csv_action.setShortcut("Ctrl+E")
+        export_csv_action.triggered.connect(self._on_export_csv)
+        file_menu.addAction(export_csv_action)
+
         # Preferences action
         preferences_action = QAction(self.tr("&Preferences"), self)
         preferences_action.setShortcut("Ctrl+,")
@@ -2315,6 +2321,11 @@ class MainWindow(QMainWindow):
 
         self._update_status_message(self.tr("Starting data import…"))
         self._on_csv_imported(csv_path, combined=True)
+
+    def _on_export_csv(self):
+        from app.dialogs import ExportCSVDialog
+        dialog = ExportCSVDialog(self)
+        dialog.exec()
 
     def _on_import_csv(self):
         """Handle Import CSV action"""
