@@ -1350,3 +1350,182 @@ class AccountCardListDialog(QDialog):
             item for item in self.all_data if search_text in str(item[0]).lower()
         ]
         self._populate_table(filtered_data)
+
+
+class ExportCSVDialog(QDialog):
+    """Dialog for exporting database data to CSV files."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(self.tr("Export CSV"))
+        self.setMinimumWidth(400)
+        self._setup_ui()
+
+    def _setup_ui(self):
+        layout = QVBoxLayout()
+
+        from PyQt6.QtWidgets import QGroupBox
+        filter_group = QGroupBox(self.tr("Filters"))
+        filter_layout = QVBoxLayout()
+
+        self.only_diamond_cb = QCheckBox(
+            self.tr("Only include 1–4D rarities (exclude 1S, 2S, 3S, CR)")
+        )
+        self.only_diamond_cb.setChecked(True)
+        self.exclude_owned_cb = QCheckBox(
+            self.tr("Exclude already-owned cards from accounts CSV")
+        )
+        self.exclude_owned_cb.setChecked(True)
+        self.export_all_pokemon_cb = QCheckBox(
+            self.tr("Export all pokemons list")
+        )
+
+        filter_layout.addWidget(self.only_diamond_cb)
+        filter_layout.addWidget(self.exclude_owned_cb)
+        filter_layout.addWidget(self.export_all_pokemon_cb)
+        filter_group.setLayout(filter_layout)
+        layout.addWidget(filter_group)
+
+        btn_layout = QHBoxLayout()
+        export_btn = QPushButton(self.tr("Export..."))
+        export_btn.clicked.connect(self._on_export)
+        close_btn = QPushButton(self.tr("Close"))
+        close_btn.clicked.connect(self.reject)
+        btn_layout.addStretch()
+        btn_layout.addWidget(export_btn)
+        btn_layout.addWidget(close_btn)
+        layout.addLayout(btn_layout)
+
+        self.setLayout(layout)
+
+    def _on_export(self):
+        directory = QFileDialog.getExistingDirectory(
+            self, self.tr("Select Export Directory")
+        )
+        if not directory:
+            return
+
+        only_diamond = self.only_diamond_cb.isChecked()
+        exclude_owned = self.exclude_owned_cb.isChecked()
+        export_all_pokemon = self.export_all_pokemon_cb.isChecked()
+        diamond_rarities = {"1D", "2D", "3D", "4D"}
+
+        exported_files = []
+        try:
+            if export_all_pokemon:
+                self._export_all_pokemon(directory, only_diamond, diamond_rarities)
+                exported_files.append("all_pokemon.csv")
+            self._export_account_pokemon(directory, only_diamond, exclude_owned, diamond_rarities)
+            exported_files.append("account_pokemon.csv")
+            self._export_owned_cards(directory, only_diamond, diamond_rarities)
+            exported_files.append("owned_cards.csv")
+        except Exception as e:
+            QMessageBox.critical(self, self.tr("Export Error"), str(e))
+            return
+
+        files_list = "\n".join(f"• {f}" for f in exported_files)
+        QMessageBox.information(
+            self,
+            self.tr("Export Complete"),
+            self.tr("Files saved to:\n%1\n\n%2").replace("%1", directory).replace("%2", files_list),
+        )
+
+    def _export_all_pokemon(self, directory: str, only_diamond: bool, diamond_rarities: set):
+        from app.db.models import Card, CardSet
+        from app.names import Dex
+
+        set_name_map = dict(zip(CardSet.values, CardSet.labels))
+        rows = []
+        seen_codes: set = set()
+
+        for card in Card.objects.all():
+            if not card.code or card.code.startswith("P-"):
+                continue
+            if only_diamond and card.rarity not in diamond_rarities:
+                continue
+            seen_codes.add(card.code)
+            set_code, _, card_index = card.code.partition("_")
+            set_name = set_name_map.get(card.set, "")
+            if not all([card.code, set_code, card_index, card.name, card.rarity, set_name]):
+                continue
+            rows.append([card.code, set_code, set_name, card_index, card.name, card.rarity])
+
+        dex = Dex()
+        for code, _full_name, obj in dex.items():
+            if code in seen_codes or code.startswith("P-"):
+                continue
+            rarity = getattr(obj, "rarity", None) or ""
+            if only_diamond and rarity not in diamond_rarities:
+                continue
+            set_code, _, card_index = code.partition("_")
+            set_name = set_name_map.get(obj.set_id.value, "")
+            if not all([code, set_code, set_name, card_index, obj.name, rarity]):
+                continue
+            rows.append([code, set_code, set_name, card_index, obj.name, rarity])
+
+        rows.sort(key=lambda r: (r[1], int(r[3]) if r[3].isdigit() else 0, r[0]))
+
+        import os
+        path = os.path.join(directory, "all_pokemon.csv")
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["id", "set_code", "set_name", "card_index", "pokemon_name", "rarity"])
+            writer.writerows(rows)
+
+    def _export_account_pokemon(self, directory: str, only_diamond: bool, exclude_owned: bool, diamond_rarities: set):
+        from app.db.models import ScreenshotCard, OwnedCard
+
+        owned_codes: set = set()
+        if exclude_owned:
+            owned_codes = set(OwnedCard.objects.values_list("card__code", flat=True))
+
+        qs = (
+            ScreenshotCard.objects
+            .select_related("screenshot__account", "card")
+            .exclude(card__code__startswith="P-")
+            .exclude(screenshot__account__isnull=True)
+        )
+        if only_diamond:
+            qs = qs.filter(card__rarity__in=list(diamond_rarities))
+        if exclude_owned:
+            qs = qs.exclude(card__code__in=owned_codes)
+
+        seen: set = set()
+        rows = []
+        for sc in qs.values_list(
+            "screenshot__account__name",
+            "screenshot__account__created_at",
+            "card__code",
+        ):
+            account_name, account_created_at, card_code = sc
+            key = (account_name, card_code)
+            if key in seen:
+                continue
+            seen.add(key)
+            if not all([account_name, account_created_at, card_code]):
+                continue
+            created_str = account_created_at.strftime("%Y%m%d_%H%M%S")
+            rows.append([account_name, created_str, card_code])
+
+        import os
+        path = os.path.join(directory, "account_pokemon.csv")
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["account_name", "account_creation_time", "pokemon_id"])
+            writer.writerows(rows)
+
+    def _export_owned_cards(self, directory: str, only_diamond: bool, diamond_rarities: set):
+        from app.db.models import OwnedCard
+
+        qs = OwnedCard.objects.select_related("card").exclude(card__code__startswith="P-")
+        if only_diamond:
+            qs = qs.filter(card__rarity__in=list(diamond_rarities))
+
+        rows = [[code] for code in qs.values_list("card__code", flat=True) if code]
+
+        import os
+        path = os.path.join(directory, "owned_cards.csv")
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["pokemon_id"])
+            writer.writerows(rows)
