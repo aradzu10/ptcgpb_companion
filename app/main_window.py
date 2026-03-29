@@ -1371,8 +1371,10 @@ class MainWindow(QMainWindow):
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
-        self.owned_cards_table.setColumnWidth(3, 60)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Interactive)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
+        self.owned_cards_table.setColumnWidth(3, 100)
+        self.owned_cards_table.setColumnWidth(4, 60)
 
         icon_width = self.owned_cards_table.iconSize().width()
         self.owned_cards_table.setColumnWidth(0, icon_width + 8)
@@ -1515,14 +1517,14 @@ class MainWindow(QMainWindow):
             indexes = self.owned_cards_table.selectedIndexes()
             if indexes:
                 row = indexes[0].row()
-                col3 = self.owned_card_model.index(row, 3)
-                current = self.owned_card_model.data(col3, Qt.ItemDataRole.CheckStateRole)
+                col4 = self.owned_card_model.index(row, 4)
+                current = self.owned_card_model.data(col4, Qt.ItemDataRole.CheckStateRole)
                 new_state = (
                     Qt.CheckState.Unchecked
                     if current == Qt.CheckState.Checked
                     else Qt.CheckState.Checked
                 )
-                self.owned_card_model.setData(col3, new_state, Qt.ItemDataRole.CheckStateRole)
+                self.owned_card_model.setData(col4, new_state, Qt.ItemDataRole.CheckStateRole)
                 return True
         return super().eventFilter(source, event)
 
@@ -1542,10 +1544,10 @@ class MainWindow(QMainWindow):
         self._update_status_message(self.tr(f"{total} cards displayed, {owned_count} owned"))
 
     def _on_owned_card_table_double_clicked(self, index):
-        col3 = self.owned_card_model.index(index.row(), 3)
-        current = self.owned_card_model.data(col3, Qt.ItemDataRole.CheckStateRole)
+        col4 = self.owned_card_model.index(index.row(), 4)
+        current = self.owned_card_model.data(col4, Qt.ItemDataRole.CheckStateRole)
         new_state = Qt.CheckState.Unchecked if current == Qt.CheckState.Checked else Qt.CheckState.Checked
-        self.owned_card_model.setData(col3, new_state, Qt.ItemDataRole.CheckStateRole)
+        self.owned_card_model.setData(col4, new_state, Qt.ItemDataRole.CheckStateRole)
 
     def _mark_all_visible_owned(self):
         from app.db.models import Card, OwnedCard
@@ -1579,8 +1581,8 @@ class MainWindow(QMainWindow):
                 item["owned"] = new_owned_state
 
         model = self.owned_card_model
-        top_left = model.index(0, 3)
-        bottom_right = model.index(model.rowCount() - 1, 3)
+        top_left = model.index(0, 4)
+        bottom_right = model.index(model.rowCount() - 1, 4)
         model.dataChanged.emit(top_left, bottom_right, [Qt.ItemDataRole.CheckStateRole])
 
     def _refresh_cards_tab(self):

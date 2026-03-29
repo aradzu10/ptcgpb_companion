@@ -165,7 +165,7 @@ class OwnedCardModel(QAbstractTableModel):
     def __init__(self, data=None):
         super().__init__()
         self._data = data or []
-        self._headers = ["Art", "Card", "Set", "Have"]
+        self._headers = ["Art", "Card", "Set", "Rarity", "Have"]
 
     def rowCount(self, parent=QModelIndex()) -> int:
         return len(self._data)
@@ -175,7 +175,7 @@ class OwnedCardModel(QAbstractTableModel):
 
     def flags(self, index):
         base = Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
-        if index.column() == 3:
+        if index.column() == 4:
             return base | Qt.ItemFlag.ItemIsUserCheckable
         return base
 
@@ -194,7 +194,7 @@ class OwnedCardModel(QAbstractTableModel):
         if role == Qt.ItemDataRole.TextAlignmentRole and col == 0:
             return Qt.AlignmentFlag.AlignCenter
 
-        if role == Qt.ItemDataRole.CheckStateRole and col == 3:
+        if role == Qt.ItemDataRole.CheckStateRole and col == 4:
             return Qt.CheckState.Checked if card_data.get("owned") else Qt.CheckState.Unchecked
 
         if role == Qt.ItemDataRole.DisplayRole:
@@ -204,6 +204,8 @@ class OwnedCardModel(QAbstractTableModel):
                 return f"{card_num} | {card_name}"
             elif col == 2:
                 return card_data.get("set_name", "Unknown")
+            elif col == 3:
+                return card_data.get("rarity", "")
 
         elif role == Qt.ItemDataRole.DecorationRole and col == 0:
             image_path = card_data.get("image_path")
@@ -221,7 +223,7 @@ class OwnedCardModel(QAbstractTableModel):
         return None
 
     def setData(self, index, value, role=Qt.ItemDataRole.EditRole):
-        if not index.isValid() or index.column() != 3:
+        if not index.isValid() or index.column() != 4:
             return False
         if role != Qt.ItemDataRole.CheckStateRole:
             return False
@@ -283,6 +285,8 @@ class OwnedCardModel(QAbstractTableModel):
                     (item.get("card_name") or "").lower(),
                 )
             elif column == 3:
+                return (item.get("rarity") or "").lower()
+            elif column == 4:
                 return (0 if item.get("owned") else 1, (item.get("card_name") or "").lower())
             return ""
 
