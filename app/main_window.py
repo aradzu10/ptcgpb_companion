@@ -1267,6 +1267,7 @@ class MainWindow(QMainWindow):
             # Connect table signals
             self.cards_table.clicked.connect(self._on_card_table_clicked)
             self.cards_table.installEventFilter(self)
+            self.cards_table.viewport().installEventFilter(self)
 
         except Exception as e:
             print(f"Error setting up card model: {e}")
@@ -1300,6 +1301,23 @@ class MainWindow(QMainWindow):
             self.cards_table.setColumnWidth(0, minimum_width)
 
     def eventFilter(self, source, event):
+        if (
+            source is self.cards_table.viewport()
+            and event.type() == QEvent.Type.MouseButtonPress
+            and event.button() == Qt.MouseButton.LeftButton
+        ):
+            index = self.cards_table.indexAt(event.pos())
+            if index.isValid() and index.column() == 5:
+                self.cards_table.setCurrentIndex(index)
+                col5 = self.card_model.index(index.row(), 5)
+                current = self.card_model.data(col5, Qt.ItemDataRole.CheckStateRole)
+                new_state = (
+                    Qt.CheckState.Unchecked
+                    if current == Qt.CheckState.Checked
+                    else Qt.CheckState.Checked
+                )
+                self.card_model.setData(col5, new_state, Qt.ItemDataRole.CheckStateRole)
+                return True  # consume event — prevents Qt auto-toggle and clicked signal
         if (
             source is self.cards_table
             and event.type() == QEvent.Type.KeyPress
@@ -1634,17 +1652,8 @@ class MainWindow(QMainWindow):
                     resolved_path,
                     card_name + " (" + (card_data.get("set_name") or "Unknown") + ")",
                 )
-        elif index.column() == 5:  # Own column - toggle ownership
-            col5 = self.card_model.index(index.row(), 5)
-            current = self.card_model.data(col5, Qt.ItemDataRole.CheckStateRole)
-            new_state = (
-                Qt.CheckState.Unchecked
-                if current == Qt.CheckState.Checked
-                else Qt.CheckState.Checked
-            )
-            self.card_model.setData(col5, new_state, Qt.ItemDataRole.CheckStateRole)
-        else:
-            # Handle other columns
+        elif index.column() != 5:
+            # Handle other columns (col5/Own is handled by viewport event filter)
             card_data = self.card_model._data[index.row()]
             card_code = card_data.get("card_code")
             card_name = card_data.get("card_name", "Unknown")
